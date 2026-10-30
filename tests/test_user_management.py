@@ -3,13 +3,12 @@ import os
 import uuid
 sys.path.insert(0, os.path.dirname(__file__))
 
-import time
 import pytest
 from pages.login_page import LoginPage
 from pages.user_list_page import UserListPage
 from pages.add_user_page import AddUserPage
 
-BASE_URL = "http://127.0.0.1:5000"
+BASE_URL = os.getenv("BASE_URL", "http://127.0.0.1:5000").rstrip("/")
 
 def login(page, username="admin", password="123456"):
     login_page = LoginPage(page)
@@ -35,7 +34,7 @@ def test_add_user(page, db_conn):
     add_page = AddUserPage(page)
 
     # 使用时间戳生成唯一用户名，避免重复
-    username = f"testuser_{int(time.time())}"
+    username = f"testuser_{uuid.uuid4().hex[:8]}"
     email = f"{username}@example.com"
     add_page.add_user(username, email, 25, "123456")
 
@@ -61,7 +60,7 @@ def test_add_duplicate_user(page):
     add_page = AddUserPage(page)
 
     # 先添加一个新用户
-    username = f"dup_{int(time.time())}"
+    username = f"dup_{uuid.uuid4().hex[:8]}"
     add_page.add_user(username, f"{username}@example.com", 30, "123456")
     page.wait_for_selector(f"tr:has-text('{username}')", timeout=5000)
 
@@ -85,7 +84,7 @@ def test_delete_user(page, db_conn):
 
     # 2. 登录并跳转列表页
     login(page)
-    page.goto("http://127.0.0.1:5000/users")
+    page.goto(f"{BASE_URL}/users")
     page.wait_for_selector(f"tr:has-text('{username}')", timeout=5000)
 
     # 3. 删除该用户

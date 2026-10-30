@@ -55,6 +55,19 @@ def db_conn():
     conn.close()
 
 
+@pytest.fixture(autouse=True)
+def cleanup_created_users(db_conn):
+    """每条用例结束后，删除本次新建的用户。
+
+    做法：用例前记录当前最大 id，用例后删除 id 更大的行。
+    这样不管用例是走 UI 还是直接写库造的数据，都能被收干净，
+    数据库不会随着执行次数无限膨胀。
+    """
+    baseline = int(db_conn.execute("SELECT COALESCE(MAX(id), 0) FROM users").fetchone()[0])
+    yield
+    db_conn.execute("DELETE FROM users WHERE id > ? AND username != 'admin'", (baseline,))
+
+
 @pytest.fixture
 def page(ui_browser: str, request: pytest.FixtureRequest):
     """每个用例一个干净的浏览器上下文；失败时自动截图并保留 trace。"""
