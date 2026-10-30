@@ -1,0 +1,49 @@
+name: tests
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  ui-and-api:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: 安装依赖
+        run: |
+          pip install -r requirements.txt
+          playwright install --with-deps chromium firefox
+
+      - name: 启动被测系统
+        run: |
+          nohup python app.py > app.log 2>&1 &
+          for i in $(seq 1 30); do
+            if curl -s -o /dev/null http://127.0.0.1:5000/login; then echo "app ready"; break; fi
+            sleep 1
+          done
+          curl -s -o /dev/null -w "%{http_code}\n" http://127.0.0.1:5000/login
+
+      - name: 执行测试（双浏览器）
+        env:
+          BROWSERS: chromium,firefox
+        run: pytest -q
+
+      - name: 上传失败产物
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: artifacts
+          path: artifacts/
+          retention-days: 7
+
+      - name: 应用日志
+        if: failure()
+        run: cat app.log
